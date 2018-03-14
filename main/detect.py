@@ -2,7 +2,7 @@
 # Created at 2015/7/20
 # Recently Modified at 2015/10/17
 # Current Version 1.2.0
-
+import shutil
 __author__ = 'Zachary Marv - 马子昂'
 
 """
@@ -103,12 +103,15 @@ class Detector:
         if DEBUG_PATH:
             print ('PATH : ' + path)
         find_file = re.compile(r'.smali$')
+
+
         p = re.compile(r'Landroid/.*?;?\-?>*?\(|Ljava/.*?;?\-?>*?\(|Ljavax/.*?;?\-?>*?\(|Lunit/runner/.*?;?\-?>*?\('
                        r'|Lunit/framework/.*?;?\-?>*?\('
                        r'|Lorg/apache/commons/logging/.*?;?\-?>*?\(|Lorg/apache/http/.*?;?\-?>*?\(|Lorg/json/.*?;'
                        r'?\-?>*?\(|Lorg/w3c/.*?;?\-?>*?\(|Lorg/xml/.*?;?\-?>*?\(|Lorg/xmlpull/.*?;?\-?>*?\(|'
                        r'Lcom/android/internal/util.*?;?\-?>*?\(')
         all_thing = glob.glob('*')
+
         this_permission = []
         this_call_num = 0
         this_dir_num = 0
@@ -190,6 +193,57 @@ class Detector:
         return this_dict, this_dir_num, this_file_num, this_call_num, this_permission
 
 
+    def merge_smali(self, path):
+
+        gd = 1
+        print 'merge begin'
+        de_path = "/Users/apple/libradar_data/decoded/%s/" % os.path.basename(path)
+
+        os.chdir(de_path)
+        #创建归并目录
+        if os.path.exists('smali_merge') == False:
+            os.system('mkdir smali_merge')
+
+        merge_dir_path_root = de_path+'smali_merge/'
+
+        list = os.listdir(de_path)
+        print list
+
+        smali_list = []
+        for dir in list:
+            if 'smali' in dir and dir != 'smali_merge':
+                smali_list.append(dir)
+
+        #if len(smali_list) == 1: return
+
+        f_out = open('merge_out.txt','w')
+
+        for smali_dir in smali_list:
+            smali_path = de_path + smali_dir
+           # print smali_path
+
+            for root, dirs, files in os.walk(smali_path, 'rb'):
+                for dir in dirs:
+
+                    dir_inside = str(os.path.join(root[len(smali_path) + 1:], dir))
+                    merge_dir_path = merge_dir_path_root + dir_inside
+                   # print merge_dir_path
+                    if os.path.exists(merge_dir_path) == False:
+                        os.makedirs(merge_dir_path)
+
+                for file in files:
+                    filePath = str(os.path.join(root, file))
+                    file_inside = str(os.path.join(root[len(smali_path) + 1:], file))
+                    merge_file_path = merge_dir_path_root + file_inside
+                    f_out.write(str(smali_dir) + '@@' + file_inside + '\n')
+                    if os.path.exists(merge_file_path) == False:
+                        # print 'cp file:' + merge_file_path
+                        shutil.copyfile(filePath, merge_file_path)
+
+
+        print 'merge end'
+
+
     def get_smali(self, path):
         """
         Convert APK into Smali file.
@@ -197,10 +251,25 @@ class Detector:
         :return: decoded files' path
         """
         self.time_load_and_extract.start()
-        cmd = self.project_path + "/" + "../tool/apktool decode -r %s -o " % path + self.project_path + "/" + \
-            "../decoded/%s" % os.path.basename(path)
+        #cmd = self.project_path + "/" + "../tool/apktool decode -r %s -o " % path + self.project_path + "/" + \
+         #   "../decoded/%s" % os.path.basename(path)
+
+        cmd = self.project_path + "/" + "../tool/apktool decode -r %s -o " % path  + \
+              "/Users/apple/libradar_data/decoded/%s" % os.path.basename(path)
+
+        #print cmd
+        #print self.project_path
+
+       # print os.path.basename(path)
+
+       # print path
+
         subprocess.call(cmd, shell=True)
-        return self.project_path + '/../decoded/%s' % os.path.basename(path)
+
+        #merge smali
+
+       # return self.project_path + '/../decoded/%s' % os.path.basename(path)
+        return '/Users/apple/libradar_data/decoded/%s' % os.path.basename(path)
 
     def load_data(self):
         # - Loading Data
@@ -256,10 +325,14 @@ class Detector:
 
 
         # - All Over
-        print apk_path+'/smali'
-        if os.path.exists(apk_path+'/smali'):
 
-            os.chdir(apk_path+'/smali')
+
+        #只遍历了smali文件夹，没有multi-dex的情况
+
+        print apk_path+'/smali_merge'
+        if os.path.exists(apk_path+'/smali_merge'):
+
+            os.chdir(apk_path+'/smali_merge')
             self.all_over(apk_path, '')
             # os.chdir(apk_path)
 
@@ -396,13 +469,15 @@ class Detector:
         self.time_compare.tostring()
 
         # Remove Lib Files.
+
         lib_dir_list = []
         for i in final_libs_dict:
             if 'cpn' in final_libs_dict[i]:
-                lib_dir_list.append(apk_path + '/smali/' + final_libs_dict[i]['cpn'])
+                lib_dir_list.append(apk_path + '/smali_merge/' + final_libs_dict[i]['cpn'])
         if RM_STATUS > 0:
             self.rm_lib_files(lib_dir_list)
 
         if RM_STATUS == 1:
             cmd = 'rm -rf %s' % apk_path
             subprocess.call(cmd, shell=True)
+

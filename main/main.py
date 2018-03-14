@@ -20,6 +20,9 @@ def main_func(path):
     print "--Decoding--"
     detector = Detector()
     decoded_path = detector.get_smali(path)
+    print decoded_path
+
+    detector.merge_smali(path)
     detector.get_hash(decoded_path)
 
 
@@ -33,4 +36,4 @@ if __name__ == '__main__':
         main_func(sys.argv[1])
     """
 
-    main_func('fuyou3.0.3.apk')
+    main_func('/Users/apple/apk/cn.nekocode.camerafilter_2.3.apk')
